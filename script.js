@@ -389,15 +389,19 @@ function fallbackCopy(text) {
   document.body.removeChild(ta);
 }
 
-function render() {
-  const now = Date.now();
+function updateHeader(now) {
   document.getElementById('greeting').textContent = greeting(now);
   document.getElementById('date-line').textContent = new Date(now).toLocaleString([], {
     weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
   });
-  renderItems(now);
-  renderHistory();
-  checkNotifications(now);
+}
+
+function render() {
+  const now = Date.now();
+  try { updateHeader(now); } catch (e) { console.error('Header render failed:', e); }
+  try { renderItems(now); } catch (e) { console.error('Items render failed:', e); }
+  try { renderHistory(); } catch (e) { console.error('History render failed:', e); }
+  try { checkNotifications(now); } catch (e) { console.error('Notification check failed:', e); }
 }
 
 function setup() {
