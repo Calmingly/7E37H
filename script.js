@@ -92,6 +92,33 @@ function fmtDateHeading(ts) {
   return new Date(ts).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
+function greeting(now) {
+  const h = new Date(now).getHours();
+  if (h < 5) return 'Good night';
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  if (h < 21) return 'Good evening';
+  return 'Good night';
+}
+
+const RING_RADIUS = 34;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+function ringHtml(fraction, color, icon, showBadge) {
+  const offset = RING_CIRCUMFERENCE * (1 - Math.min(Math.max(fraction, 0), 1));
+  return `
+    <div class="ring-wrap">
+      <svg class="ring" viewBox="0 0 80 80">
+        <circle class="ring-bg" cx="40" cy="40" r="${RING_RADIUS}"></circle>
+        <circle class="ring-fg" cx="40" cy="40" r="${RING_RADIUS}" stroke="${color}"
+          stroke-dasharray="${RING_CIRCUMFERENCE}" stroke-dashoffset="${offset}"></circle>
+      </svg>
+      <span class="ring-icon">${icon}</span>
+      ${showBadge ? '<span class="ring-badge">✓</span>' : ''}
+    </div>
+  `;
+}
+
 function dayKey(ts) {
   const d = new Date(ts);
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -181,25 +208,26 @@ function itemCardHtml(item, now) {
   const cfg = status.cfg;
 
   let statusClass = 'status-waiting';
-  let statusText;
+  let bigText;
+  let subText;
   let progressFraction = 0;
   if (status.neverLogged) {
     statusClass = 'status-ready';
-    statusText = 'Available anytime';
+    bigText = 'Ready';
+    subText = 'Log anytime';
     progressFraction = 1;
   } else if (status.ready) {
     statusClass = 'status-ready';
-    statusText = status.sinceEligibleMs > 0
-      ? `Since ${fmtTime(status.nextEligibleTs)} (${fmtDuration(status.sinceEligibleMs)} ago)`
-      : `Just became available`;
+    bigText = 'Ready';
+    subText = status.sinceEligibleMs > 0
+      ? `Since ${fmtTime(status.nextEligibleTs)} · ${fmtDuration(status.sinceEligibleMs)} ago`
+      : 'Just became available';
     progressFraction = 1;
   } else {
-    statusText = `In ${fmtDuration(status.remainingMs)} (at ${fmtTime(status.nextEligibleTs)})`;
+    bigText = fmtDuration(status.remainingMs);
+    subText = `until next · ${fmtTime(status.nextEligibleTs)}`;
     progressFraction = status.elapsedFraction;
   }
-  const readyBadge = statusClass === 'status-ready'
-    ? `<span class="ready-check" aria-hidden="true">✓</span> Available now`
-    : `<span aria-hidden="true">⏳</span> Next dose`;
 
   let doseMeterHtml = '';
   if (cfg.hasDose) {
@@ -210,7 +238,10 @@ function itemCardHtml(item, now) {
     else if (pct >= 0.7) cls = 'meter-warn';
     doseMeterHtml = `
       <div class="dose-meter">
-        <div class="dose-meter-label">${t24}mg / ${cfg.dailyMaxMg}mg in last 24h</div>
+        <div class="dose-meter-row">
+          <span>${t24}mg</span>
+          <span class="dose-meter-max">/ ${cfg.dailyMaxMg}mg today</span>
+        </div>
         <div class="meter-track">
           <div class="meter-fill ${cls}" style="width:${Math.min(pct, 1) * 100}%"></div>
         </div>
@@ -219,20 +250,18 @@ function itemCardHtml(item, now) {
   }
 
   return `
-    <div class="card" data-item="${item.id}" style="--item-color:${cfg.color}">
-      <div class="card-title">
-        <div class="title-left">
-          <span class="icon-badge" style="background:${cfg.color}22; color:${cfg.color}">${cfg.icon}</span>
-          <h3>${cfg.label}</h3>
-        </div>
+    <div class="card" data-item="${item.id}">
+      <div class="card-top">
+        <span class="card-dot" style="background:${cfg.color}"></span>
+        <span class="card-label">${cfg.label}</span>
         ${cfg.hasDose ? `<span class="card-dose">${cfg.doseMg}mg</span>` : ''}
       </div>
 
-      <div class="status-line ${statusClass}">
-        <div class="status-top">${readyBadge}</div>
-        <div class="status-detail">${statusText}</div>
-        <div class="progress-track">
-          <div class="progress-fill ${statusClass}" style="width:${progressFraction * 100}%"></div>
+      <div class="card-main">
+        ${ringHtml(progressFraction, cfg.color, cfg.icon, statusClass === 'status-ready')}
+        <div class="card-info">
+          <div class="info-big ${statusClass}">${bigText}</div>
+          <div class="info-sub">${subText}</div>
         </div>
       </div>
 
@@ -362,8 +391,9 @@ function fallbackCopy(text) {
 
 function render() {
   const now = Date.now();
-  document.getElementById('clock').textContent = new Date(now).toLocaleString([], {
-    weekday: 'short', hour: 'numeric', minute: '2-digit',
+  document.getElementById('greeting').textContent = greeting(now);
+  document.getElementById('date-line').textContent = new Date(now).toLocaleString([], {
+    weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
   });
   renderItems(now);
   renderHistory();

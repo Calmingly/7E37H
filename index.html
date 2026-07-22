@@ -9,12 +9,12 @@
 <body>
   <header class="app-header">
     <div>
-      <h1>Recovery Tracker</h1>
-      <p class="subtitle">Medications, rinses &amp; compresses</p>
+      <p class="eyebrow">Recovery Tracker</p>
+      <h1 id="greeting">Good evening</h1>
+      <p class="subtitle" id="date-line"></p>
     </div>
     <div class="header-actions">
-      <span id="clock" class="clock"></span>
-      <button id="notif-btn" class="btn btn-secondary">Enable notifications</button>
+      <button id="notif-btn" class="btn btn-secondary btn-pill">Enable notifications</button>
     </div>
   </header>
 
@@ -24,7 +24,7 @@
     <section class="history-section">
       <div class="history-header">
         <h2>History</h2>
-        <button id="copy-summary-btn" class="btn btn-secondary">Copy summary</button>
+        <button id="copy-summary-btn" class="btn btn-secondary btn-pill">Copy summary</button>
       </div>
       <div id="history" aria-label="Logged history"></div>
     </section>
