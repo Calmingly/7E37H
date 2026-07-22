@@ -2,11 +2,11 @@ const STORAGE_KEY = 'recoveryTrackerV1';
 const HOUR_MS = 3600000;
 
 const DEFAULT_ITEMS = [
-  { id: 'ibuprofen', label: 'Ibuprofen', hasDose: true, doseMg: 600, intervalMinH: 6, intervalMaxH: 6, dailyMaxMg: 2400 },
-  { id: 'tylenol', label: 'Tylenol (Acetaminophen)', hasDose: true, doseMg: 1000, intervalMinH: 3, intervalMaxH: 4, dailyMaxMg: 3000 },
-  { id: 'saltwater', label: 'Salt Water Rinse', hasDose: false, intervalMinH: 4, intervalMaxH: 6 },
-  { id: 'peridex', label: 'Peridex Rinse', hasDose: false, intervalMinH: 10, intervalMaxH: 14 },
-  { id: 'warmcompress', label: 'Warm Compress', hasDose: false, intervalMinH: 2, intervalMaxH: 2 },
+  { id: 'ibuprofen', label: 'Ibuprofen', icon: '💊', color: '#3b82f6', hasDose: true, doseMg: 600, intervalMinH: 6, intervalMaxH: 6, dailyMaxMg: 2400 },
+  { id: 'tylenol', label: 'Tylenol (Acetaminophen)', icon: '💊', color: '#8b5cf6', hasDose: true, doseMg: 1000, intervalMinH: 3, intervalMaxH: 4, dailyMaxMg: 3000 },
+  { id: 'saltwater', label: 'Salt Water Rinse', icon: '🧂', color: '#14b8a6', hasDose: false, intervalMinH: 4, intervalMaxH: 6 },
+  { id: 'peridex', label: 'Peridex Rinse', icon: '🧴', color: '#06b6d4', hasDose: false, intervalMinH: 10, intervalMaxH: 14 },
+  { id: 'warmcompress', label: 'Warm Compress', icon: '🔥', color: '#f97316', hasDose: false, intervalMinH: 2, intervalMaxH: 2 },
 ];
 
 function loadState() {
@@ -61,6 +61,8 @@ function computeStatus(id, now) {
   const nextEligibleTs = last.ts + cfg.intervalMinH * HOUR_MS;
   const nextUpperTs = last.ts + cfg.intervalMaxH * HOUR_MS;
   const ready = now >= nextEligibleTs;
+  const intervalMs = Math.max(cfg.intervalMinH * HOUR_MS, 1);
+  const elapsedFraction = Math.min(Math.max((now - last.ts) / intervalMs, 0), 1);
   return {
     cfg,
     last,
@@ -68,6 +70,7 @@ function computeStatus(id, now) {
     neverLogged: false,
     nextEligibleTs,
     nextUpperTs,
+    elapsedFraction,
     sinceEligibleMs: ready ? now - nextEligibleTs : 0,
     remainingMs: ready ? 0 : nextEligibleTs - now,
   };
@@ -179,40 +182,66 @@ function itemCardHtml(item, now) {
 
   let statusClass = 'status-waiting';
   let statusText;
+  let progressFraction = 0;
   if (status.neverLogged) {
     statusClass = 'status-ready';
-    statusText = 'Not logged yet — available anytime';
+    statusText = 'Available anytime';
+    progressFraction = 1;
   } else if (status.ready) {
     statusClass = 'status-ready';
     statusText = status.sinceEligibleMs > 0
-      ? `Available now — eligible since ${fmtTime(status.nextEligibleTs)} (${fmtDuration(status.sinceEligibleMs)} ago)`
-      : `Available now`;
+      ? `Since ${fmtTime(status.nextEligibleTs)} (${fmtDuration(status.sinceEligibleMs)} ago)`
+      : `Just became available`;
+    progressFraction = 1;
   } else {
-    statusText = `Next available in ${fmtDuration(status.remainingMs)} (at ${fmtTime(status.nextEligibleTs)})`;
+    statusText = `In ${fmtDuration(status.remainingMs)} (at ${fmtTime(status.nextEligibleTs)})`;
+    progressFraction = status.elapsedFraction;
   }
+  const readyBadge = statusClass === 'status-ready'
+    ? `<span class="ready-check" aria-hidden="true">✓</span> Available now`
+    : `<span aria-hidden="true">⏳</span> Next dose`;
 
   let doseMeterHtml = '';
   if (cfg.hasDose) {
     const t24 = total24h(item.id, now);
     const pct = t24 / cfg.dailyMaxMg;
-    let cls = 'status-ready';
-    if (pct >= 1) cls = 'status-danger';
-    else if (pct >= 0.7) cls = 'status-warn';
-    doseMeterHtml = `<div class="dose-meter ${cls}">${t24}mg / ${cfg.dailyMaxMg}mg in last 24h</div>`;
+    let cls = 'meter-ok';
+    if (pct >= 1) cls = 'meter-danger';
+    else if (pct >= 0.7) cls = 'meter-warn';
+    doseMeterHtml = `
+      <div class="dose-meter">
+        <div class="dose-meter-label">${t24}mg / ${cfg.dailyMaxMg}mg in last 24h</div>
+        <div class="meter-track">
+          <div class="meter-fill ${cls}" style="width:${Math.min(pct, 1) * 100}%"></div>
+        </div>
+      </div>
+    `;
   }
 
   return `
-    <div class="card" data-item="${item.id}">
+    <div class="card" data-item="${item.id}" style="--item-color:${cfg.color}">
       <div class="card-title">
-        <h3>${cfg.label}</h3>
+        <div class="title-left">
+          <span class="icon-badge" style="background:${cfg.color}22; color:${cfg.color}">${cfg.icon}</span>
+          <h3>${cfg.label}</h3>
+        </div>
         ${cfg.hasDose ? `<span class="card-dose">${cfg.doseMg}mg</span>` : ''}
       </div>
-      <div class="status-line ${statusClass}">${statusText}</div>
+
+      <div class="status-line ${statusClass}">
+        <div class="status-top">${readyBadge}</div>
+        <div class="status-detail">${statusText}</div>
+        <div class="progress-track">
+          <div class="progress-fill ${statusClass}" style="width:${progressFraction * 100}%"></div>
+        </div>
+      </div>
+
       ${doseMeterHtml}
+
       <div class="card-actions">
         <button class="btn btn-primary btn-log-now" data-item="${item.id}">Log now</button>
-        <button class="btn-link btn-toggle-custom" data-item="${item.id}">Log at another time</button>
-        <button class="btn-link btn-toggle-edit" data-item="${item.id}">Edit</button>
+        <button class="btn-icon btn-toggle-custom" data-item="${item.id}" title="Log at another time" aria-label="Log at another time">🕐</button>
+        <button class="btn-icon btn-toggle-edit" data-item="${item.id}" title="Edit settings" aria-label="Edit settings">✏️</button>
       </div>
       <div class="custom-time-row" data-item="${item.id}">
         <input type="datetime-local" class="custom-time-input" data-item="${item.id}" value="${localDatetimeValue(now)}">
@@ -379,6 +408,11 @@ function setup() {
     if (e.target.classList.contains('log-entry-remove')) {
       deleteLog(e.target.dataset.logId);
     }
+  });
+
+  const header = document.querySelector('.app-header');
+  window.addEventListener('scroll', () => {
+    header.classList.toggle('scrolled', window.scrollY > 4);
   });
 
   render();
