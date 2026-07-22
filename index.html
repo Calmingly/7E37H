@@ -3,14 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Web App</title>
+  <title>Recovery Tracker</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <header class="app-header">
+    <div>
+      <h1>Recovery Tracker</h1>
+      <p class="subtitle">Medications, rinses &amp; compresses</p>
+    </div>
+    <div class="header-actions">
+      <span id="clock" class="clock"></span>
+      <button id="notif-btn" class="btn btn-secondary">Enable notifications</button>
+    </div>
+  </header>
+
   <main>
-    <h1>My Web App</h1>
-    <p>Start building here.</p>
+    <section id="items" class="items-grid" aria-label="Tracked items"></section>
+
+    <section class="history-section">
+      <div class="history-header">
+        <h2>History</h2>
+        <button id="copy-summary-btn" class="btn btn-secondary">Copy summary</button>
+      </div>
+      <div id="history" aria-label="Logged history"></div>
+    </section>
+
+    <p class="disclaimer">
+      This is a personal tracking tool, not medical advice. Default doses,
+      intervals, and daily maximums are editable per item — set them to
+      match what your surgeon actually told you. Notifications only fire
+      while this page is open in your browser.
+    </p>
   </main>
+
   <script src="script.js"></script>
 </body>
 </html>
