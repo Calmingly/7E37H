@@ -10,7 +10,7 @@
   <link rel="icon" href="favicon-16.png?v=2" sizes="16x16" type="image/png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
   <link rel="manifest" href="site.webmanifest?v=2">
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
   <header class="app-header">
@@ -33,6 +33,11 @@
     <section id="summary" class="summary-strip" aria-label="Today at a glance"></section>
 
     <section id="items" class="items-grid" aria-label="Tracked items"></section>
+
+    <section class="trend-section" aria-label="Weekly trend">
+      <h2>This week</h2>
+      <div id="trend"></div>
+    </section>
 
     <section class="history-section">
       <div class="history-header">
@@ -107,6 +112,16 @@
     </section>
   </dialog>
 
-  <script src="script.js?v=6"></script>
+  <dialog id="confirm-dialog" class="confirm-dialog">
+    <p id="confirm-message"></p>
+    <div class="confirm-actions">
+      <button type="button" id="confirm-cancel-btn" class="btn btn-secondary btn-pill">Cancel</button>
+      <button type="button" id="confirm-ok-btn" class="btn btn-primary btn-pill">Confirm</button>
+    </div>
+  </dialog>
+
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <script src="script.js?v=7"></script>
 </body>
 </html>
