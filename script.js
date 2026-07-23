@@ -1,12 +1,22 @@
 const STORAGE_KEY = 'recoveryTrackerV1';
 const HOUR_MS = 3600000;
 
+const ICON_SVG_ATTRS = 'viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"';
+
+const ICONS = {
+  capsule: `<svg ${ICON_SVG_ATTRS}><g transform="rotate(-45 12 12)"><rect x="4" y="8" width="16" height="8" rx="4"/><line x1="12" y1="8" x2="12" y2="16"/></g></svg>`,
+  tablet: `<svg ${ICON_SVG_ATTRS}><circle cx="12" cy="12" r="8"/><line x1="4" y1="12" x2="20" y2="12"/></svg>`,
+  glass: `<svg ${ICON_SVG_ATTRS}><path d="M6 4h12l-1.4 14.8a1 1 0 0 1-1 .9H8.4a1 1 0 0 1-1-.9L6 4Z"/><path d="M7.3 10.5c1 1 2.4 1 3.4 0s2.4-1 3.4 0 2.4 1 3.4 0"/></svg>`,
+  bottle: `<svg ${ICON_SVG_ATTRS}><rect x="7" y="9" width="10" height="12" rx="2"/><path d="M9.5 9V6.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V9"/><line x1="9" y1="15" x2="15" y2="15"/></svg>`,
+  flame: `<svg ${ICON_SVG_ATTRS}><path d="M12 3.5c.6 2.3-1 3.4-2.1 4.8-1.2 1.5-1.9 3-1.9 4.4a4 4 0 0 0 8 0c0-1-.3-1.8-.8-2.5.1 1.2-.5 1.8-1 1.5-.7-.4-.4-1.5-.4-2.2 0-2-1-4.2-1.8-6Z"/></svg>`,
+};
+
 const DEFAULT_ITEMS = [
-  { id: 'ibuprofen', label: 'Ibuprofen', icon: '💊', color: '#3b82f6', hasDose: true, doseMg: 600, intervalMinH: 6, intervalMaxH: 6, dailyMaxMg: 2400 },
-  { id: 'tylenol', label: 'Tylenol (Acetaminophen)', icon: '💊', color: '#8b5cf6', hasDose: true, doseMg: 1000, intervalMinH: 3, intervalMaxH: 4, dailyMaxMg: 3000 },
-  { id: 'saltwater', label: 'Salt Water Rinse', icon: '🧂', color: '#14b8a6', hasDose: false, intervalMinH: 4, intervalMaxH: 6 },
-  { id: 'peridex', label: 'Peridex Rinse', icon: '🧴', color: '#06b6d4', hasDose: false, intervalMinH: 10, intervalMaxH: 14 },
-  { id: 'warmcompress', label: 'Warm Compress', icon: '🔥', color: '#f97316', hasDose: false, intervalMinH: 2, intervalMaxH: 2 },
+  { id: 'ibuprofen', label: 'Ibuprofen', icon: ICONS.capsule, color: '#3b82f6', hasDose: true, doseMg: 600, intervalMinH: 6, intervalMaxH: 6, dailyMaxMg: 2400 },
+  { id: 'tylenol', label: 'Tylenol (Acetaminophen)', icon: ICONS.tablet, color: '#8b5cf6', hasDose: true, doseMg: 1000, intervalMinH: 3, intervalMaxH: 4, dailyMaxMg: 3000 },
+  { id: 'saltwater', label: 'Salt Water Rinse', icon: ICONS.glass, color: '#14b8a6', hasDose: false, intervalMinH: 4, intervalMaxH: 6 },
+  { id: 'peridex', label: 'Peridex Rinse', icon: ICONS.bottle, color: '#06b6d4', hasDose: false, intervalMinH: 10, intervalMaxH: 14 },
+  { id: 'warmcompress', label: 'Warm Compress', icon: ICONS.flame, color: '#f97316', hasDose: false, intervalMinH: 2, intervalMaxH: 2 },
 ];
 
 const DEFAULT_SETTINGS = {
@@ -136,7 +146,7 @@ function ringHtml(fraction, color, icon, showBadge) {
         <circle class="ring-fg" cx="40" cy="40" r="${RING_RADIUS}" stroke="${color}"
           stroke-dasharray="${RING_CIRCUMFERENCE}" stroke-dashoffset="${offset}"></circle>
       </svg>
-      <span class="ring-icon">${icon}</span>
+      <span class="ring-icon" style="color:${color}">${icon}</span>
       ${showBadge ? '<span class="ring-badge">✓</span>' : ''}
     </div>
   `;
