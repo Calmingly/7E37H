@@ -30,10 +30,11 @@ const DEFAULT_SETTINGS = {
   timeFormat: '12',
   leadMinutes: 0,
   hiddenItems: [],
+  itemOrder: [],
 };
 
 function loadState() {
-  const fallback = { overrides: {}, logs: [], notified: {}, notifiedEarly: {}, customItems: [], settings: { ...DEFAULT_SETTINGS } };
+  const fallback = { overrides: {}, logs: [], notified: {}, notifiedEarly: {}, customItems: [], removedDefaultIds: [], settings: { ...DEFAULT_SETTINGS } };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return fallback;
@@ -44,6 +45,7 @@ function loadState() {
       notified: parsed.notified || {},
       notifiedEarly: parsed.notifiedEarly || {},
       customItems: parsed.customItems || [],
+      removedDefaultIds: parsed.removedDefaultIds || [],
       settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
     };
   } catch {
@@ -58,7 +60,21 @@ function saveState() {
 let state = loadState();
 
 function getAllItems() {
-  return [...DEFAULT_ITEMS, ...state.customItems];
+  return [
+    ...DEFAULT_ITEMS.filter((i) => !state.removedDefaultIds.includes(i.id)),
+    ...state.customItems,
+  ];
+}
+
+// Applies the user's chosen display order (state.settings.itemOrder), appending
+// any item not yet in that order (newly added, or restored) at the end.
+function getOrderedItems() {
+  const all = getAllItems();
+  const byId = Object.fromEntries(all.map((i) => [i.id, i]));
+  const order = state.settings.itemOrder || [];
+  const ordered = order.filter((id) => byId[id]).map((id) => byId[id]);
+  const missing = all.filter((i) => !order.includes(i.id));
+  return [...ordered, ...missing];
 }
 
 function getConfig(id) {
@@ -319,6 +335,7 @@ function importBackupFile(file) {
       notified: parsed.notified || {},
       notifiedEarly: parsed.notifiedEarly || {},
       customItems: parsed.customItems || [],
+      removedDefaultIds: parsed.removedDefaultIds || [],
       settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
     };
     saveState();
@@ -349,7 +366,7 @@ async function resetEverything() {
     { okLabel: 'Reset everything', danger: true }
   );
   if (!ok) return;
-  state = { overrides: {}, logs: [], notified: {}, notifiedEarly: {}, customItems: [], settings: { ...DEFAULT_SETTINGS } };
+  state = { overrides: {}, logs: [], notified: {}, notifiedEarly: {}, customItems: [], removedDefaultIds: [], settings: { ...DEFAULT_SETTINGS } };
   saveState();
   applyTheme();
   populateSettingsDialog();
@@ -395,7 +412,7 @@ function updateNotifButton() {
 function checkNotifications(now) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const leadMs = (state.settings.leadMinutes || 0) * 60000;
-  for (const item of getAllItems()) {
+  for (const item of getOrderedItems()) {
     if (state.settings.hiddenItems.includes(item.id)) continue;
     const status = computeStatus(item.id, now);
     if (status.neverLogged) continue;
@@ -513,7 +530,7 @@ function localDatetimeValue(ts) {
 
 function renderSummary(now) {
   const container = document.getElementById('summary');
-  const visible = getAllItems().filter((item) => !state.settings.hiddenItems.includes(item.id));
+  const visible = getOrderedItems().filter((item) => !state.settings.hiddenItems.includes(item.id));
   if (visible.length === 0) {
     container.innerHTML = '';
     return;
@@ -549,7 +566,7 @@ function renderSummary(now) {
 
 function renderItems(now) {
   const container = document.getElementById('items');
-  const visible = getAllItems().filter((item) => !state.settings.hiddenItems.includes(item.id));
+  const visible = getOrderedItems().filter((item) => !state.settings.hiddenItems.includes(item.id));
   container.innerHTML = visible.length
     ? visible.map((item) => itemCardHtml(item, now)).join('')
     : '<p class="empty-note">All items are hidden — enable some in Settings.</p>';
@@ -559,7 +576,7 @@ function renderItems(now) {
 // card (ring progress, status text, dose meter) so it never disturbs an open
 // edit/custom-time panel or a value the user is mid-typing.
 function tickItems(now) {
-  const visible = getAllItems().filter((item) => !state.settings.hiddenItems.includes(item.id));
+  const visible = getOrderedItems().filter((item) => !state.settings.hiddenItems.includes(item.id));
   for (const item of visible) {
     const card = document.querySelector(`.card[data-item="${item.id}"]`);
     if (!card) continue;
@@ -647,7 +664,7 @@ function buildTrendBuckets(now) {
 
 function renderTrend(now) {
   const container = document.getElementById('trend');
-  const visible = getAllItems().filter((item) => !state.settings.hiddenItems.includes(item.id));
+  const visible = getOrderedItems().filter((item) => !state.settings.hiddenItems.includes(item.id));
   if (visible.length === 0 || state.logs.length === 0) {
     container.innerHTML = '<p class="empty-note">Log something to see your weekly trend.</p>';
     return;
@@ -825,8 +842,9 @@ function populateSettingsDialog() {
   document.getElementById('setting-time-format').value = state.settings.timeFormat;
   document.getElementById('setting-lead-minutes').value = String(state.settings.leadMinutes);
 
+  const items = getOrderedItems();
   const list = document.getElementById('visibility-list');
-  list.innerHTML = getAllItems().map((item) => `
+  list.innerHTML = items.map((item, idx) => `
     <div class="visibility-row">
       <label>
         <input type="checkbox" class="visibility-checkbox" data-item="${item.id}"
@@ -834,9 +852,49 @@ function populateSettingsDialog() {
         <span class="card-dot" style="background:${item.color}"></span>
         ${item.label}
       </label>
-      ${item.custom ? `<button type="button" class="visibility-delete" data-item="${item.id}" title="Delete ${item.label}" aria-label="Delete ${item.label}">${TRASH_ICON}</button>` : ''}
+      <div class="visibility-controls">
+        <button type="button" class="visibility-move" data-item="${item.id}" data-dir="-1"
+          title="Move up" aria-label="Move ${item.label} up" ${idx === 0 ? 'disabled' : ''}>&#8593;</button>
+        <button type="button" class="visibility-move" data-item="${item.id}" data-dir="1"
+          title="Move down" aria-label="Move ${item.label} down" ${idx === items.length - 1 ? 'disabled' : ''}>&#8595;</button>
+        <button type="button" class="visibility-delete" data-item="${item.id}" title="Remove ${item.label}" aria-label="Remove ${item.label}">${TRASH_ICON}</button>
+      </div>
     </div>
   `).join('');
+
+  const removedList = document.getElementById('removed-items');
+  removedList.innerHTML = state.removedDefaultIds.length
+    ? `<div class="removed-items-label">Removed</div>` + state.removedDefaultIds.map((id) => {
+        const base = DEFAULT_ITEMS.find((i) => i.id === id);
+        if (!base) return '';
+        return `
+          <div class="removed-item-row">
+            <span>${base.label}</span>
+            <button type="button" class="restore-item-btn" data-item="${id}">Restore</button>
+          </div>
+        `;
+      }).join('')
+    : '';
+}
+
+function moveItem(id, direction) {
+  const ordered = getOrderedItems().map((i) => i.id);
+  const idx = ordered.indexOf(id);
+  const swapIdx = idx + direction;
+  if (idx === -1 || swapIdx < 0 || swapIdx >= ordered.length) return;
+  [ordered[idx], ordered[swapIdx]] = [ordered[swapIdx], ordered[idx]];
+  state.settings.itemOrder = ordered;
+  saveState();
+  populateSettingsDialog();
+  render();
+}
+
+async function removeItem(id) {
+  if (state.customItems.some((i) => i.id === id)) {
+    await deleteCustomItem(id);
+  } else {
+    await removeDefaultItem(id);
+  }
 }
 
 async function deleteCustomItem(id) {
@@ -850,9 +908,37 @@ async function deleteCustomItem(id) {
   state.customItems = state.customItems.filter((i) => i.id !== id);
   state.logs = state.logs.filter((l) => l.itemId !== id);
   state.settings.hiddenItems = state.settings.hiddenItems.filter((h) => h !== id);
+  state.settings.itemOrder = state.settings.itemOrder.filter((o) => o !== id);
   delete state.overrides[id];
   delete state.notified[id];
   delete state.notifiedEarly[id];
+  saveState();
+  populateSettingsDialog();
+  render();
+}
+
+async function removeDefaultItem(id) {
+  const base = DEFAULT_ITEMS.find((i) => i.id === id);
+  if (!base) return;
+  const ok = await showConfirm(
+    `Remove "${base.label}"? This also removes its logged history. You can restore it later from Settings.`,
+    { okLabel: 'Remove', danger: true }
+  );
+  if (!ok) return;
+  state.removedDefaultIds.push(id);
+  state.logs = state.logs.filter((l) => l.itemId !== id);
+  state.settings.hiddenItems = state.settings.hiddenItems.filter((h) => h !== id);
+  state.settings.itemOrder = state.settings.itemOrder.filter((o) => o !== id);
+  delete state.overrides[id];
+  delete state.notified[id];
+  delete state.notifiedEarly[id];
+  saveState();
+  populateSettingsDialog();
+  render();
+}
+
+function restoreDefaultItem(id) {
+  state.removedDefaultIds = state.removedDefaultIds.filter((r) => r !== id);
   saveState();
   populateSettingsDialog();
   render();
@@ -962,9 +1048,18 @@ function setup() {
     render();
   });
   document.getElementById('visibility-list').addEventListener('click', (e) => {
-    const btn = e.target.closest('.visibility-delete');
+    const moveBtn = e.target.closest('.visibility-move');
+    if (moveBtn) {
+      moveItem(moveBtn.dataset.item, Number(moveBtn.dataset.dir));
+      return;
+    }
+    const delBtn = e.target.closest('.visibility-delete');
+    if (delBtn) removeItem(delBtn.dataset.item);
+  });
+  document.getElementById('removed-items').addEventListener('click', (e) => {
+    const btn = e.target.closest('.restore-item-btn');
     if (!btn) return;
-    deleteCustomItem(btn.dataset.item);
+    restoreDefaultItem(btn.dataset.item);
   });
 
   document.getElementById('new-item-has-dose').addEventListener('change', (e) => {

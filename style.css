@@ -788,6 +788,70 @@ details.day-group summary {
   flex-shrink: 0;
 }
 
+.visibility-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.visibility-move {
+  background: var(--track);
+  border: none;
+  border-radius: 8px;
+  width: 1.8rem;
+  height: 1.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 0.9rem;
+  padding: 0;
+  line-height: 1;
+}
+
+.visibility-move:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.removed-items:empty {
+  display: none;
+}
+
+.removed-items {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px dashed var(--border);
+}
+
+.removed-items-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+
+.removed-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  padding: 0.3rem 0;
+}
+
+.restore-item-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
 .add-item-form {
   display: flex;
   flex-direction: column;
