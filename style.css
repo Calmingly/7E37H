@@ -506,15 +506,38 @@ details.day-group summary {
 }
 
 .log-entry {
+  position: relative;
+  overflow: hidden;
+}
+
+.log-entry-delete-bg {
+  position: absolute;
+  inset: 0;
+  background: var(--danger);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  padding-right: 1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.log-entry-content {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0.45rem 0;
   border-bottom: 1px solid var(--border);
+  background: var(--card-bg);
   font-size: 0.9rem;
+  touch-action: pan-y;
+  will-change: transform;
 }
 
-.log-entry:last-child {
+.log-entry:last-child .log-entry-content {
   border-bottom: none;
 }
 
@@ -537,6 +560,130 @@ details.day-group summary {
   font-size: 0.8rem;
   color: var(--muted);
   line-height: 1.4;
+}
+
+.trend-section {
+  margin-top: 1.6rem;
+}
+
+.trend-section h2 {
+  font-size: 1.2rem;
+  font-weight: 800;
+  margin: 0 0 0.7rem;
+}
+
+.trend-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6rem;
+  background: var(--card-bg);
+  border-radius: 20px;
+  padding: 1rem 1.1rem 0.8rem;
+  box-shadow: var(--shadow);
+}
+
+.trend-bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.trend-bar {
+  width: 100%;
+  max-width: 28px;
+  height: 90px;
+  display: flex;
+  flex-direction: column-reverse;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--track);
+}
+
+.trend-seg {
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.trend-bar-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.confirm-dialog {
+  border: none;
+  border-radius: 20px;
+  padding: 1.4rem 1.5rem;
+  width: min(420px, calc(100vw - 2.5rem));
+  background: var(--card-bg);
+  color: var(--text);
+  box-shadow: var(--shadow-hover);
+}
+
+.confirm-dialog::backdrop {
+  background: rgba(10, 12, 16, 0.5);
+}
+
+.confirm-dialog p {
+  margin: 0 0 1.1rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.toast-container {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.5rem;
+  z-index: 200;
+  width: min(360px, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  background: #1f242c;
+  color: #f2f3f5;
+  border-radius: 14px;
+  padding: 0.75rem 1rem;
+  box-shadow: var(--shadow-hover);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast-action {
+  background: none;
+  border: none;
+  color: #5eead4;
+  font-weight: 700;
+  font-size: 0.86rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
 }
 
 .settings-dialog {

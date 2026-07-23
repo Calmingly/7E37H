@@ -1,9 +1,9 @@
-const CACHE_NAME = 'recovery-tracker-v1';
+const CACHE_NAME = 'recovery-tracker-v2';
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=4',
-  './script.js?v=6',
+  './style.css?v=5',
+  './script.js?v=7',
   './site.webmanifest?v=2',
   './favicon.svg?v=2',
   './favicon-32.png?v=2',

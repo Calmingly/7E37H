@@ -11,6 +11,8 @@ const ICONS = {
   flame: `<svg ${ICON_SVG_ATTRS}><path d="M12 3.5c.6 2.3-1 3.4-2.1 4.8-1.2 1.5-1.9 3-1.9 4.4a4 4 0 0 0 8 0c0-1-.3-1.8-.8-2.5.1 1.2-.5 1.8-1 1.5-.7-.4-.4-1.5-.4-2.2 0-2-1-4.2-1.8-6Z"/></svg>`,
 };
 
+const TRASH_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>';
+
 const DEFAULT_ITEMS = [
   { id: 'ibuprofen', label: 'Ibuprofen', icon: ICONS.capsule, color: '#3b82f6', hasDose: true, doseMg: 600, intervalMinH: 6, intervalMaxH: 6, dailyMaxMg: 2400 },
   { id: 'tylenol', label: 'Tylenol (Acetaminophen)', icon: ICONS.tablet, color: '#8b5cf6', hasDose: true, doseMg: 1000, intervalMinH: 3, intervalMaxH: 4, dailyMaxMg: 3000 },
@@ -152,19 +154,83 @@ function ringHtml(fraction, color, icon, showBadge) {
   `;
 }
 
+function showToast(message, opts = {}) {
+  const { actionLabel, onAction, duration = 4000 } = opts;
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  const text = document.createElement('span');
+  text.textContent = message;
+  el.appendChild(text);
+
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 220);
+  };
+
+  if (actionLabel) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'toast-action';
+    btn.textContent = actionLabel;
+    btn.addEventListener('click', () => {
+      if (onAction) onAction();
+      dismiss();
+    });
+    el.appendChild(btn);
+  }
+
+  container.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(dismiss, duration);
+}
+
+function showConfirm(message, opts = {}) {
+  const { okLabel = 'Confirm', danger = false } = opts;
+  return new Promise((resolve) => {
+    const dialog = document.getElementById('confirm-dialog');
+    document.getElementById('confirm-message').textContent = message;
+    const okBtn = document.getElementById('confirm-ok-btn');
+    const cancelBtn = document.getElementById('confirm-cancel-btn');
+    okBtn.textContent = okLabel;
+    okBtn.classList.toggle('btn-danger', danger);
+    okBtn.classList.toggle('btn-primary', !danger);
+
+    const cleanup = (result) => {
+      dialog.close();
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      dialog.removeEventListener('cancel', onDialogCancel);
+      resolve(result);
+    };
+    const onOk = () => cleanup(true);
+    const onCancel = () => cleanup(false);
+    const onDialogCancel = (e) => { e.preventDefault(); cleanup(false); };
+
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    dialog.addEventListener('cancel', onDialogCancel);
+    dialog.showModal();
+  });
+}
+
 function dayKey(ts) {
   const d = new Date(ts);
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-function logDose(id, ts) {
+async function logDose(id, ts) {
   const cfg = getConfig(id);
   if (cfg.hasDose) {
     const prospective = total24h(id, ts) + cfg.doseMg;
     if (prospective > cfg.dailyMaxMg) {
-      const ok = confirm(
+      const ok = await showConfirm(
         `Logging this would put you at ${prospective}mg of ${cfg.label} in the trailing 24 hours, ` +
-        `above your ${cfg.dailyMaxMg}mg limit. Log anyway?`
+        `above your ${cfg.dailyMaxMg}mg limit. Log anyway?`,
+        { okLabel: 'Log anyway', danger: true }
       );
       if (!ok) return;
     }
@@ -184,6 +250,20 @@ function deleteLog(logId) {
   state.logs = state.logs.filter((l) => l.id !== logId);
   saveState();
   render();
+}
+
+function removeLogWithUndo(logId) {
+  const removed = state.logs.find((l) => l.id === logId);
+  if (!removed) return;
+  deleteLog(logId);
+  showToast('Entry removed', {
+    actionLabel: 'Undo',
+    onAction: () => {
+      state.logs.push(removed);
+      saveState();
+      render();
+    },
+  });
 }
 
 function saveOverride(id, fields) {
@@ -207,19 +287,22 @@ function exportBackup() {
 
 function importBackupFile(file) {
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     let parsed;
     try {
       parsed = JSON.parse(reader.result);
     } catch {
-      alert('That file is not valid JSON — could not import.');
+      showToast('That file is not valid JSON — could not import.');
       return;
     }
     if (!parsed || !Array.isArray(parsed.logs)) {
-      alert('That file doesn\'t look like a Recovery Tracker backup.');
+      showToast('That file doesn\'t look like a Recovery Tracker backup.');
       return;
     }
-    const ok = confirm('This will replace your current history and settings with the imported backup. Continue?');
+    const ok = await showConfirm(
+      'This will replace your current history and settings with the imported backup. Continue?',
+      { okLabel: 'Import' }
+    );
     if (!ok) return;
     state = {
       overrides: parsed.overrides || {},
@@ -232,13 +315,16 @@ function importBackupFile(file) {
     applyTheme();
     populateSettingsDialog();
     render();
-    alert('Backup imported.');
+    showToast('Backup imported.');
   };
   reader.readAsText(file);
 }
 
-function clearHistory() {
-  const ok = confirm('Clear all logged history? Your item settings will be kept. This cannot be undone.');
+async function clearHistory() {
+  const ok = await showConfirm(
+    'Clear all logged history? Your item settings will be kept. This cannot be undone.',
+    { okLabel: 'Clear history', danger: true }
+  );
   if (!ok) return;
   state.logs = [];
   state.notified = {};
@@ -247,8 +333,11 @@ function clearHistory() {
   render();
 }
 
-function resetEverything() {
-  const ok = confirm('Reset all history AND settings back to defaults? This cannot be undone.');
+async function resetEverything() {
+  const ok = await showConfirm(
+    'Reset all history AND settings back to defaults? This cannot be undone.',
+    { okLabel: 'Reset everything', danger: true }
+  );
   if (!ok) return;
   state = { overrides: {}, logs: [], notified: {}, notifiedEarly: {}, settings: { ...DEFAULT_SETTINGS } };
   saveState();
@@ -268,7 +357,7 @@ function showNotification(title, options) {
 
 function requestNotifPermission() {
   if (!('Notification' in window)) {
-    alert('This browser does not support notifications.');
+    showToast('This browser does not support notifications.');
     return;
   }
   Notification.requestPermission().then(updateNotifButton);
@@ -456,6 +545,129 @@ function renderItems(now) {
     : '<p class="empty-note">All items are hidden — enable some in Settings.</p>';
 }
 
+// Lightweight periodic update: only touches the time-sensitive bits of each
+// card (ring progress, status text, dose meter) so it never disturbs an open
+// edit/custom-time panel or a value the user is mid-typing.
+function tickItems(now) {
+  const visible = DEFAULT_ITEMS.filter((item) => !state.settings.hiddenItems.includes(item.id));
+  for (const item of visible) {
+    const card = document.querySelector(`.card[data-item="${item.id}"]`);
+    if (!card) continue;
+    const status = computeStatus(item.id, now);
+    const cfg = status.cfg;
+
+    let statusClass = 'status-waiting';
+    let bigText;
+    let subText;
+    let progressFraction = 0;
+    if (status.neverLogged) {
+      statusClass = 'status-ready';
+      bigText = 'Ready';
+      subText = 'Log anytime';
+      progressFraction = 1;
+    } else if (status.ready) {
+      statusClass = 'status-ready';
+      bigText = 'Ready';
+      subText = status.sinceEligibleMs > 0
+        ? `Since ${fmtTime(status.nextEligibleTs)} · ${fmtDuration(status.sinceEligibleMs)} ago`
+        : 'Just became available';
+      progressFraction = 1;
+    } else {
+      bigText = fmtDuration(status.remainingMs);
+      subText = `until next · ${fmtTime(status.nextEligibleTs)}`;
+      progressFraction = status.elapsedFraction;
+    }
+
+    const ringFg = card.querySelector('.ring-fg');
+    if (ringFg) {
+      const offset = RING_CIRCUMFERENCE * (1 - Math.min(Math.max(progressFraction, 0), 1));
+      ringFg.style.strokeDashoffset = String(offset);
+    }
+    const ringWrap = card.querySelector('.ring-wrap');
+    if (ringWrap) {
+      const existingBadge = ringWrap.querySelector('.ring-badge');
+      if (statusClass === 'status-ready' && !existingBadge) {
+        const badge = document.createElement('span');
+        badge.className = 'ring-badge';
+        badge.textContent = '✓';
+        ringWrap.appendChild(badge);
+      } else if (statusClass !== 'status-ready' && existingBadge) {
+        existingBadge.remove();
+      }
+    }
+    const infoBig = card.querySelector('.info-big');
+    if (infoBig) {
+      infoBig.textContent = bigText;
+      infoBig.classList.toggle('status-ready', statusClass === 'status-ready');
+    }
+    const infoSub = card.querySelector('.info-sub');
+    if (infoSub) infoSub.textContent = subText;
+
+    if (cfg.hasDose) {
+      const t24 = total24h(item.id, now);
+      const pct = t24 / cfg.dailyMaxMg;
+      const fill = card.querySelector('.meter-fill');
+      if (fill) {
+        fill.style.width = `${Math.min(pct, 1) * 100}%`;
+        fill.classList.remove('meter-ok', 'meter-warn', 'meter-danger');
+        fill.classList.add(pct >= 1 ? 'meter-danger' : pct >= 0.7 ? 'meter-warn' : 'meter-ok');
+      }
+      const amountEl = card.querySelector('.dose-meter-row span:first-child');
+      if (amountEl) amountEl.textContent = `${t24}mg`;
+    }
+  }
+}
+
+const TREND_DAYS = 7;
+
+function buildTrendBuckets(now) {
+  const buckets = [];
+  for (let i = TREND_DAYS - 1; i >= 0; i--) {
+    const ts = now - i * 24 * HOUR_MS;
+    buckets.push({ key: dayKey(ts), date: new Date(ts), counts: {} });
+  }
+  const byKey = Object.fromEntries(buckets.map((b) => [b.key, b]));
+  for (const log of state.logs) {
+    const bucket = byKey[dayKey(log.ts)];
+    if (!bucket) continue;
+    bucket.counts[log.itemId] = (bucket.counts[log.itemId] || 0) + 1;
+  }
+  return buckets;
+}
+
+function renderTrend(now) {
+  const container = document.getElementById('trend');
+  const visible = DEFAULT_ITEMS.filter((item) => !state.settings.hiddenItems.includes(item.id));
+  if (visible.length === 0 || state.logs.length === 0) {
+    container.innerHTML = '<p class="empty-note">Log something to see your weekly trend.</p>';
+    return;
+  }
+
+  const buckets = buildTrendBuckets(now);
+  const totals = buckets.map((b) => visible.reduce((sum, item) => sum + (b.counts[item.id] || 0), 0));
+  const max = Math.max(1, ...totals);
+
+  const barsHtml = buckets.map((bucket, idx) => {
+    const total = totals[idx];
+    const segments = visible
+      .filter((item) => bucket.counts[item.id])
+      .map((item) => {
+        const h = (bucket.counts[item.id] / max) * 100;
+        return `<div class="trend-seg" style="height:${h}%;background:${item.color}" title="${item.label}: ${bucket.counts[item.id]}"></div>`;
+      })
+      .join('');
+    const label = bucket.date.toLocaleDateString([], { weekday: 'short' });
+    return `
+      <div class="trend-bar-col">
+        <div class="trend-bar" role="img" aria-label="${label}: ${total} logged">${segments}</div>
+        <div class="trend-bar-label">${label}</div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = `<div class="trend-chart">${barsHtml}</div>`;
+}
+
 function renderHistory() {
   const container = document.getElementById('history');
   if (state.logs.length === 0) {
@@ -482,9 +694,12 @@ function renderHistory() {
           const cfg = getConfig(log.itemId);
           const doseText = log.doseMg ? ` — ${log.doseMg}mg` : '';
           return `
-            <div class="log-entry">
-              <span>${fmtTime(log.ts)} — ${cfg.label}${doseText}</span>
-              <button class="log-entry-remove" data-log-id="${log.id}">remove</button>
+            <div class="log-entry" data-log-id="${log.id}">
+              <div class="log-entry-delete-bg">${TRASH_ICON}<span>Remove</span></div>
+              <div class="log-entry-content">
+                <span>${fmtTime(log.ts)} — ${cfg.label}${doseText}</span>
+                <button class="log-entry-remove" data-log-id="${log.id}">remove</button>
+              </div>
             </div>
           `;
         })
@@ -497,6 +712,46 @@ function renderHistory() {
       `;
     })
     .join('');
+}
+
+const SWIPE_DELETE_THRESHOLD = 70;
+const SWIPE_MAX_DRAG = 120;
+
+function attachHistorySwipeHandlers() {
+  const container = document.getElementById('history');
+  let active = null;
+
+  container.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.log-entry-remove')) return;
+    const content = e.target.closest('.log-entry-content');
+    if (!content) return;
+    const entry = content.closest('.log-entry');
+    active = { content, logId: entry.dataset.logId, startX: e.clientX, dx: 0, pointerId: e.pointerId };
+    content.style.transition = 'none';
+    content.setPointerCapture(e.pointerId);
+  });
+
+  container.addEventListener('pointermove', (e) => {
+    if (!active || active.pointerId !== e.pointerId) return;
+    active.dx = Math.min(0, Math.max(-SWIPE_MAX_DRAG, e.clientX - active.startX));
+    active.content.style.transform = `translateX(${active.dx}px)`;
+  });
+
+  const endSwipe = (e) => {
+    if (!active || active.pointerId !== e.pointerId) return;
+    if (active.dx <= -SWIPE_DELETE_THRESHOLD) {
+      const logId = active.logId;
+      active.content.style.transition = 'transform 0.16s ease';
+      active.content.style.transform = 'translateX(-100%)';
+      setTimeout(() => removeLogWithUndo(logId), 150);
+    } else {
+      active.content.style.transition = '';
+      active.content.style.transform = 'translateX(0)';
+    }
+    active = null;
+  };
+  container.addEventListener('pointerup', endSwipe);
+  container.addEventListener('pointercancel', endSwipe);
 }
 
 function buildSummaryText() {
@@ -525,7 +780,7 @@ function copySummary() {
   const text = buildSummaryText();
   if (navigator.clipboard) {
     navigator.clipboard.writeText(text).then(
-      () => alert('Summary copied to clipboard.'),
+      () => showToast('Summary copied to clipboard.'),
       () => fallbackCopy(text)
     );
   } else {
@@ -540,9 +795,9 @@ function fallbackCopy(text) {
   ta.select();
   try {
     document.execCommand('copy');
-    alert('Summary copied to clipboard.');
+    showToast('Summary copied to clipboard.');
   } catch {
-    alert('Could not copy automatically. Here is the summary:\n\n' + text);
+    showToast('Could not copy automatically.');
   }
   document.body.removeChild(ta);
 }
@@ -576,7 +831,19 @@ function render() {
   try { updateHeader(now); } catch (e) { console.error('Header render failed:', e); }
   try { renderSummary(now); } catch (e) { console.error('Summary render failed:', e); }
   try { renderItems(now); } catch (e) { console.error('Items render failed:', e); }
+  try { renderTrend(now); } catch (e) { console.error('Trend render failed:', e); }
   try { renderHistory(); } catch (e) { console.error('History render failed:', e); }
+  try { checkNotifications(now); } catch (e) { console.error('Notification check failed:', e); }
+}
+
+// Runs every 15s. Deliberately avoids touching #items/#history innerHTML so
+// it never wipes an open edit/custom-time panel or an in-progress value.
+function tick() {
+  const now = Date.now();
+  try { updateHeader(now); } catch (e) { console.error('Header tick failed:', e); }
+  try { renderSummary(now); } catch (e) { console.error('Summary tick failed:', e); }
+  try { tickItems(now); } catch (e) { console.error('Item tick failed:', e); }
+  try { renderTrend(now); } catch (e) { console.error('Trend tick failed:', e); }
   try { checkNotifications(now); } catch (e) { console.error('Notification check failed:', e); }
 }
 
@@ -666,9 +933,10 @@ function setup() {
 
   document.getElementById('history').addEventListener('click', (e) => {
     if (e.target.classList.contains('log-entry-remove')) {
-      deleteLog(e.target.dataset.logId);
+      removeLogWithUndo(e.target.dataset.logId);
     }
   });
+  attachHistorySwipeHandlers();
 
   const header = document.querySelector('.app-header');
   window.addEventListener('scroll', () => {
@@ -676,7 +944,7 @@ function setup() {
   });
 
   render();
-  setInterval(render, 15000);
+  setInterval(tick, 15000);
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch((e) => console.error('SW registration failed:', e));
