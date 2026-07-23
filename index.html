@@ -10,7 +10,7 @@
   <link rel="icon" href="favicon-16.png?v=2" sizes="16x16" type="image/png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
   <link rel="manifest" href="site.webmanifest?v=2">
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
   <header class="app-header">
@@ -99,6 +99,57 @@
     </section>
 
     <section class="settings-section">
+      <h3>Add a custom item</h3>
+      <div class="add-item-form">
+        <label class="field-stack">
+          Name
+          <input type="text" id="new-item-label" placeholder="e.g. Amoxicillin">
+        </label>
+        <label class="field-stack">
+          Icon
+          <select id="new-item-icon">
+            <option value="capsule">Capsule</option>
+            <option value="tablet">Round tablet</option>
+            <option value="caplet">Square tablet</option>
+            <option value="glass">Rinse (glass)</option>
+            <option value="bottle">Rinse (bottle)</option>
+            <option value="flame">Warmth</option>
+            <option value="snowflake">Cold</option>
+          </select>
+        </label>
+        <label class="field-stack">
+          Color
+          <input type="color" id="new-item-color" value="#22c55e">
+        </label>
+        <label class="checkbox-field">
+          <input type="checkbox" id="new-item-has-dose">
+          Tracks a dose (medication)
+        </label>
+        <div id="new-item-dose-fields" class="field-row hidden">
+          <label class="field-stack">
+            Dose (mg)
+            <input type="number" id="new-item-dose" min="0">
+          </label>
+          <label class="field-stack">
+            Daily max (mg)
+            <input type="number" id="new-item-daily-max" min="0">
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="field-stack">
+            Min hrs
+            <input type="number" id="new-item-min-h" step="0.5" min="0" value="6">
+          </label>
+          <label class="field-stack">
+            Max hrs
+            <input type="number" id="new-item-max-h" step="0.5" min="0" value="6">
+          </label>
+        </div>
+        <button type="button" id="add-item-btn" class="btn btn-primary btn-pill">Add item</button>
+      </div>
+    </section>
+
+    <section class="settings-section">
       <h3>Data</h3>
       <div class="settings-actions">
         <button type="button" id="export-btn" class="btn btn-secondary btn-pill">Export backup</button>
@@ -122,6 +173,6 @@
 
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <script src="script.js?v=8"></script>
+  <script src="script.js?v=9"></script>
 </body>
 </html>

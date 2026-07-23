@@ -33,7 +33,7 @@ const DEFAULT_SETTINGS = {
 };
 
 function loadState() {
-  const fallback = { overrides: {}, logs: [], notified: {}, notifiedEarly: {}, settings: { ...DEFAULT_SETTINGS } };
+  const fallback = { overrides: {}, logs: [], notified: {}, notifiedEarly: {}, customItems: [], settings: { ...DEFAULT_SETTINGS } };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return fallback;
@@ -43,6 +43,7 @@ function loadState() {
       logs: parsed.logs || [],
       notified: parsed.notified || {},
       notifiedEarly: parsed.notifiedEarly || {},
+      customItems: parsed.customItems || [],
       settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
     };
   } catch {
@@ -56,8 +57,12 @@ function saveState() {
 
 let state = loadState();
 
+function getAllItems() {
+  return [...DEFAULT_ITEMS, ...state.customItems];
+}
+
 function getConfig(id) {
-  const base = DEFAULT_ITEMS.find((i) => i.id === id);
+  const base = getAllItems().find((i) => i.id === id);
   return { ...base, ...(state.overrides[id] || {}) };
 }
 
@@ -313,6 +318,7 @@ function importBackupFile(file) {
       logs: parsed.logs || [],
       notified: parsed.notified || {},
       notifiedEarly: parsed.notifiedEarly || {},
+      customItems: parsed.customItems || [],
       settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
     };
     saveState();
@@ -343,7 +349,7 @@ async function resetEverything() {
     { okLabel: 'Reset everything', danger: true }
   );
   if (!ok) return;
-  state = { overrides: {}, logs: [], notified: {}, notifiedEarly: {}, settings: { ...DEFAULT_SETTINGS } };
+  state = { overrides: {}, logs: [], notified: {}, notifiedEarly: {}, customItems: [], settings: { ...DEFAULT_SETTINGS } };
   saveState();
   applyTheme();
   populateSettingsDialog();
@@ -389,7 +395,7 @@ function updateNotifButton() {
 function checkNotifications(now) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const leadMs = (state.settings.leadMinutes || 0) * 60000;
-  for (const item of DEFAULT_ITEMS) {
+  for (const item of getAllItems()) {
     if (state.settings.hiddenItems.includes(item.id)) continue;
     const status = computeStatus(item.id, now);
     if (status.neverLogged) continue;
@@ -507,7 +513,7 @@ function localDatetimeValue(ts) {
 
 function renderSummary(now) {
   const container = document.getElementById('summary');
-  const visible = DEFAULT_ITEMS.filter((item) => !state.settings.hiddenItems.includes(item.id));
+  const visible = getAllItems().filter((item) => !state.settings.hiddenItems.includes(item.id));
   if (visible.length === 0) {
     container.innerHTML = '';
     return;
@@ -543,7 +549,7 @@ function renderSummary(now) {
 
 function renderItems(now) {
   const container = document.getElementById('items');
-  const visible = DEFAULT_ITEMS.filter((item) => !state.settings.hiddenItems.includes(item.id));
+  const visible = getAllItems().filter((item) => !state.settings.hiddenItems.includes(item.id));
   container.innerHTML = visible.length
     ? visible.map((item) => itemCardHtml(item, now)).join('')
     : '<p class="empty-note">All items are hidden — enable some in Settings.</p>';
@@ -553,7 +559,7 @@ function renderItems(now) {
 // card (ring progress, status text, dose meter) so it never disturbs an open
 // edit/custom-time panel or a value the user is mid-typing.
 function tickItems(now) {
-  const visible = DEFAULT_ITEMS.filter((item) => !state.settings.hiddenItems.includes(item.id));
+  const visible = getAllItems().filter((item) => !state.settings.hiddenItems.includes(item.id));
   for (const item of visible) {
     const card = document.querySelector(`.card[data-item="${item.id}"]`);
     if (!card) continue;
@@ -641,7 +647,7 @@ function buildTrendBuckets(now) {
 
 function renderTrend(now) {
   const container = document.getElementById('trend');
-  const visible = DEFAULT_ITEMS.filter((item) => !state.settings.hiddenItems.includes(item.id));
+  const visible = getAllItems().filter((item) => !state.settings.hiddenItems.includes(item.id));
   if (visible.length === 0 || state.logs.length === 0) {
     container.innerHTML = '<p class="empty-note">Log something to see your weekly trend.</p>';
     return;
@@ -820,14 +826,76 @@ function populateSettingsDialog() {
   document.getElementById('setting-lead-minutes').value = String(state.settings.leadMinutes);
 
   const list = document.getElementById('visibility-list');
-  list.innerHTML = DEFAULT_ITEMS.map((item) => `
-    <label class="visibility-row">
-      <input type="checkbox" class="visibility-checkbox" data-item="${item.id}"
-        ${state.settings.hiddenItems.includes(item.id) ? '' : 'checked'}>
-      <span class="card-dot" style="background:${item.color}"></span>
-      ${item.label}
-    </label>
+  list.innerHTML = getAllItems().map((item) => `
+    <div class="visibility-row">
+      <label>
+        <input type="checkbox" class="visibility-checkbox" data-item="${item.id}"
+          ${state.settings.hiddenItems.includes(item.id) ? '' : 'checked'}>
+        <span class="card-dot" style="background:${item.color}"></span>
+        ${item.label}
+      </label>
+      ${item.custom ? `<button type="button" class="visibility-delete" data-item="${item.id}" title="Delete ${item.label}" aria-label="Delete ${item.label}">${TRASH_ICON}</button>` : ''}
+    </div>
   `).join('');
+}
+
+async function deleteCustomItem(id) {
+  const item = state.customItems.find((i) => i.id === id);
+  if (!item) return;
+  const ok = await showConfirm(
+    `Delete "${item.label}"? This also removes its logged history. This cannot be undone.`,
+    { okLabel: 'Delete', danger: true }
+  );
+  if (!ok) return;
+  state.customItems = state.customItems.filter((i) => i.id !== id);
+  state.logs = state.logs.filter((l) => l.itemId !== id);
+  state.settings.hiddenItems = state.settings.hiddenItems.filter((h) => h !== id);
+  delete state.overrides[id];
+  delete state.notified[id];
+  delete state.notifiedEarly[id];
+  saveState();
+  populateSettingsDialog();
+  render();
+}
+
+function addCustomItem() {
+  const label = document.getElementById('new-item-label').value.trim();
+  const iconKey = document.getElementById('new-item-icon').value;
+  const color = document.getElementById('new-item-color').value;
+  const hasDose = document.getElementById('new-item-has-dose').checked;
+  const doseMg = Number(document.getElementById('new-item-dose').value);
+  const dailyMaxMg = Number(document.getElementById('new-item-daily-max').value);
+  const intervalMinH = Number(document.getElementById('new-item-min-h').value);
+  const intervalMaxH = Number(document.getElementById('new-item-max-h').value);
+
+  if (!label) { showToast('Give the item a name first.'); return; }
+  if (!intervalMinH || intervalMinH <= 0) { showToast('Enter a minimum hours value greater than 0.'); return; }
+  if (hasDose && (!doseMg || doseMg <= 0)) { showToast('Enter a dose amount.'); return; }
+  if (hasDose && (!dailyMaxMg || dailyMaxMg <= 0)) { showToast('Enter a daily max.'); return; }
+
+  const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const item = {
+    id,
+    label,
+    icon: ICONS[iconKey] || ICONS.capsule,
+    color,
+    custom: true,
+    hasDose,
+    intervalMinH,
+    intervalMaxH: intervalMaxH || intervalMinH,
+    ...(hasDose ? { doseMg, dailyMaxMg } : {}),
+  };
+  state.customItems.push(item);
+  saveState();
+  populateSettingsDialog();
+  render();
+  showToast(`${label} added.`);
+
+  document.getElementById('new-item-label').value = '';
+  document.getElementById('new-item-dose').value = '';
+  document.getElementById('new-item-daily-max').value = '';
+  document.getElementById('new-item-has-dose').checked = false;
+  document.getElementById('new-item-dose-fields').classList.add('hidden');
 }
 
 function render() {
@@ -893,6 +961,16 @@ function setup() {
     saveState();
     render();
   });
+  document.getElementById('visibility-list').addEventListener('click', (e) => {
+    const btn = e.target.closest('.visibility-delete');
+    if (!btn) return;
+    deleteCustomItem(btn.dataset.item);
+  });
+
+  document.getElementById('new-item-has-dose').addEventListener('change', (e) => {
+    document.getElementById('new-item-dose-fields').classList.toggle('hidden', !e.target.checked);
+  });
+  document.getElementById('add-item-btn').addEventListener('click', addCustomItem);
 
   document.getElementById('export-btn').addEventListener('click', exportBackup);
   document.getElementById('import-btn').addEventListener('click', () => {
