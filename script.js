@@ -9,18 +9,28 @@ const DEFAULT_ITEMS = [
   { id: 'warmcompress', label: 'Warm Compress', icon: '🔥', color: '#f97316', hasDose: false, intervalMinH: 2, intervalMaxH: 2 },
 ];
 
+const DEFAULT_SETTINGS = {
+  theme: 'system',
+  timeFormat: '12',
+  leadMinutes: 0,
+  hiddenItems: [],
+};
+
 function loadState() {
+  const fallback = { overrides: {}, logs: [], notified: {}, notifiedEarly: {}, settings: { ...DEFAULT_SETTINGS } };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { overrides: {}, logs: [], notified: {} };
+    if (!raw) return fallback;
     const parsed = JSON.parse(raw);
     return {
       overrides: parsed.overrides || {},
       logs: parsed.logs || [],
       notified: parsed.notified || {},
+      notifiedEarly: parsed.notifiedEarly || {},
+      settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
     };
   } catch {
-    return { overrides: {}, logs: [], notified: {} };
+    return fallback;
   }
 }
 
@@ -85,11 +95,24 @@ function fmtDuration(ms) {
 }
 
 function fmtTime(ts) {
-  return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return new Date(ts).toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: state.settings.timeFormat !== '24',
+  });
 }
 
 function fmtDateHeading(ts) {
   return new Date(ts).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+function applyTheme() {
+  const theme = state.settings.theme;
+  if (theme === 'system') {
+    delete document.documentElement.dataset.theme;
+  } else {
+    document.documentElement.dataset.theme = theme;
+  }
 }
 
 function greeting(now) {
@@ -159,6 +182,71 @@ function saveOverride(id, fields) {
   render();
 }
 
+function exportBackup() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `recovery-tracker-backup-${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importBackupFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    let parsed;
+    try {
+      parsed = JSON.parse(reader.result);
+    } catch {
+      alert('That file is not valid JSON — could not import.');
+      return;
+    }
+    if (!parsed || !Array.isArray(parsed.logs)) {
+      alert('That file doesn\'t look like a Recovery Tracker backup.');
+      return;
+    }
+    const ok = confirm('This will replace your current history and settings with the imported backup. Continue?');
+    if (!ok) return;
+    state = {
+      overrides: parsed.overrides || {},
+      logs: parsed.logs || [],
+      notified: parsed.notified || {},
+      notifiedEarly: parsed.notifiedEarly || {},
+      settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
+    };
+    saveState();
+    applyTheme();
+    populateSettingsDialog();
+    render();
+    alert('Backup imported.');
+  };
+  reader.readAsText(file);
+}
+
+function clearHistory() {
+  const ok = confirm('Clear all logged history? Your item settings will be kept. This cannot be undone.');
+  if (!ok) return;
+  state.logs = [];
+  state.notified = {};
+  state.notifiedEarly = {};
+  saveState();
+  render();
+}
+
+function resetEverything() {
+  const ok = confirm('Reset all history AND settings back to defaults? This cannot be undone.');
+  if (!ok) return;
+  state = { overrides: {}, logs: [], notified: {}, notifiedEarly: {}, settings: { ...DEFAULT_SETTINGS } };
+  saveState();
+  applyTheme();
+  populateSettingsDialog();
+  render();
+}
+
 function requestNotifPermission() {
   if (!('Notification' in window)) {
     alert('This browser does not support notifications.');
@@ -188,9 +276,23 @@ function updateNotifButton() {
 
 function checkNotifications(now) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const leadMs = (state.settings.leadMinutes || 0) * 60000;
   for (const item of DEFAULT_ITEMS) {
+    if (state.settings.hiddenItems.includes(item.id)) continue;
     const status = computeStatus(item.id, now);
     if (status.neverLogged) continue;
+
+    if (leadMs > 0 && !status.ready) {
+      const leadTs = status.nextEligibleTs - leadMs;
+      if (now >= leadTs && state.notifiedEarly[item.id] !== status.last.ts) {
+        new Notification(`${status.cfg.label} coming up`, {
+          body: `Available at ${fmtTime(status.nextEligibleTs)}.`,
+        });
+        state.notifiedEarly[item.id] = status.last.ts;
+        saveState();
+      }
+    }
+
     if (status.ready && state.notified[item.id] !== status.last.ts) {
       new Notification(`${status.cfg.label} is due`, {
         body: status.cfg.hasDose
@@ -295,7 +397,10 @@ function localDatetimeValue(ts) {
 
 function renderItems(now) {
   const container = document.getElementById('items');
-  container.innerHTML = DEFAULT_ITEMS.map((item) => itemCardHtml(item, now)).join('');
+  const visible = DEFAULT_ITEMS.filter((item) => !state.settings.hiddenItems.includes(item.id));
+  container.innerHTML = visible.length
+    ? visible.map((item) => itemCardHtml(item, now)).join('')
+    : '<p class="empty-note">All items are hidden — enable some in Settings.</p>';
 }
 
 function renderHistory() {
@@ -393,7 +498,24 @@ function updateHeader(now) {
   document.getElementById('greeting').textContent = greeting(now);
   document.getElementById('date-line').textContent = new Date(now).toLocaleString([], {
     weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+    hour12: state.settings.timeFormat !== '24',
   });
+}
+
+function populateSettingsDialog() {
+  document.getElementById('setting-theme').value = state.settings.theme;
+  document.getElementById('setting-time-format').value = state.settings.timeFormat;
+  document.getElementById('setting-lead-minutes').value = String(state.settings.leadMinutes);
+
+  const list = document.getElementById('visibility-list');
+  list.innerHTML = DEFAULT_ITEMS.map((item) => `
+    <label class="visibility-row">
+      <input type="checkbox" class="visibility-checkbox" data-item="${item.id}"
+        ${state.settings.hiddenItems.includes(item.id) ? '' : 'checked'}>
+      <span class="card-dot" style="background:${item.color}"></span>
+      ${item.label}
+    </label>
+  `).join('');
 }
 
 function render() {
@@ -405,9 +527,59 @@ function render() {
 }
 
 function setup() {
+  applyTheme();
   updateNotifButton();
   document.getElementById('notif-btn').addEventListener('click', requestNotifPermission);
   document.getElementById('copy-summary-btn').addEventListener('click', copySummary);
+
+  const settingsDialog = document.getElementById('settings-dialog');
+  document.getElementById('settings-btn').addEventListener('click', () => {
+    populateSettingsDialog();
+    settingsDialog.showModal();
+  });
+  document.getElementById('settings-close-btn').addEventListener('click', () => {
+    settingsDialog.close();
+  });
+  settingsDialog.addEventListener('click', (e) => {
+    if (e.target === settingsDialog) settingsDialog.close();
+  });
+
+  document.getElementById('setting-theme').addEventListener('change', (e) => {
+    state.settings.theme = e.target.value;
+    saveState();
+    applyTheme();
+  });
+  document.getElementById('setting-time-format').addEventListener('change', (e) => {
+    state.settings.timeFormat = e.target.value;
+    saveState();
+    render();
+  });
+  document.getElementById('setting-lead-minutes').addEventListener('change', (e) => {
+    state.settings.leadMinutes = Number(e.target.value);
+    saveState();
+  });
+  document.getElementById('visibility-list').addEventListener('change', (e) => {
+    if (!e.target.classList.contains('visibility-checkbox')) return;
+    const id = e.target.dataset.item;
+    const hidden = new Set(state.settings.hiddenItems);
+    if (e.target.checked) hidden.delete(id);
+    else hidden.add(id);
+    state.settings.hiddenItems = [...hidden];
+    saveState();
+    render();
+  });
+
+  document.getElementById('export-btn').addEventListener('click', exportBackup);
+  document.getElementById('import-btn').addEventListener('click', () => {
+    document.getElementById('import-file').click();
+  });
+  document.getElementById('import-file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) importBackupFile(file);
+    e.target.value = '';
+  });
+  document.getElementById('clear-history-btn').addEventListener('click', clearHistory);
+  document.getElementById('reset-all-btn').addEventListener('click', resetEverything);
 
   document.getElementById('items').addEventListener('click', (e) => {
     const target = e.target;

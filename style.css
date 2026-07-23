@@ -36,6 +36,38 @@
   }
 }
 
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --card-bg: #1a1f27;
+  --text: #f2f3f5;
+  --muted: #9aa0ac;
+  --border: #262c36;
+  --ready: #34e0a1;
+  --waiting: #b0b6c0;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --accent: #14b8a6;
+  --track: rgba(255, 255, 255, 0.09);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-hover: 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme="light"] {
+  --bg: #f1f3f6;
+  --card-bg: #ffffff;
+  --text: #14181f;
+  --muted: #767b87;
+  --border: #e9ebf0;
+  --ready: #17c67f;
+  --waiting: #4b5563;
+  --warn: #f5a623;
+  --danger: #f0483e;
+  --accent: #0d9488;
+  --track: rgba(120, 130, 150, 0.16);
+  --shadow: 0 1px 3px rgba(20, 24, 31, 0.05), 0 1px 2px rgba(20, 24, 31, 0.04);
+  --shadow-hover: 0 10px 24px rgba(20, 24, 31, 0.10), 0 2px 6px rgba(20, 24, 31, 0.06);
+}
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -431,4 +463,105 @@ details.day-group summary {
   font-size: 0.8rem;
   color: var(--muted);
   line-height: 1.4;
+}
+
+.settings-dialog {
+  border: none;
+  border-radius: 20px;
+  padding: 1.4rem 1.5rem;
+  width: min(480px, calc(100vw - 2.5rem));
+  max-height: min(640px, calc(100vh - 3rem));
+  background: var(--card-bg);
+  color: var(--text);
+  box-shadow: var(--shadow-hover);
+}
+
+.settings-dialog::backdrop {
+  background: rgba(10, 12, 16, 0.5);
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.settings-section {
+  padding: 0.9rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.settings-section:first-of-type {
+  border-top: none;
+}
+
+.settings-section h3 {
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.settings-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.4rem 0;
+}
+
+.settings-field select {
+  font: inherit;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.visibility-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.visibility-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.visibility-row .card-dot {
+  margin-left: 0.1rem;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.settings-actions:last-child {
+  margin-bottom: 0;
+}
+
+.btn-danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+  font-weight: 700;
 }

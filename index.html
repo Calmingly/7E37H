@@ -21,6 +21,7 @@
     </div>
     <div class="header-actions">
       <button id="notif-btn" class="btn btn-secondary btn-pill">Enable notifications</button>
+      <button id="settings-btn" class="btn-icon" title="Settings" aria-label="Settings">⚙️</button>
     </div>
   </header>
 
@@ -42,6 +43,63 @@
       while this page is open in your browser.
     </p>
   </main>
+
+  <dialog id="settings-dialog" class="settings-dialog">
+    <div class="settings-header">
+      <h2>Settings</h2>
+      <button id="settings-close-btn" class="btn-icon" title="Close" aria-label="Close">✕</button>
+    </div>
+
+    <section class="settings-section">
+      <h3>Appearance</h3>
+      <label class="settings-field">
+        Theme
+        <select id="setting-theme">
+          <option value="system">Match system</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+      <label class="settings-field">
+        Time format
+        <select id="setting-time-format">
+          <option value="12">12-hour</option>
+          <option value="24">24-hour</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="settings-section">
+      <h3>Notifications</h3>
+      <label class="settings-field">
+        Notify me before due
+        <select id="setting-lead-minutes">
+          <option value="0">At the exact time</option>
+          <option value="10">10 minutes early</option>
+          <option value="15">15 minutes early</option>
+          <option value="30">30 minutes early</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="settings-section">
+      <h3>Visible items</h3>
+      <div id="visibility-list" class="visibility-list"></div>
+    </section>
+
+    <section class="settings-section">
+      <h3>Data</h3>
+      <div class="settings-actions">
+        <button type="button" id="export-btn" class="btn btn-secondary btn-pill">Export backup</button>
+        <button type="button" id="import-btn" class="btn btn-secondary btn-pill">Import backup</button>
+        <input type="file" id="import-file" accept="application/json" hidden>
+      </div>
+      <div class="settings-actions">
+        <button type="button" id="clear-history-btn" class="btn btn-secondary btn-pill">Clear history</button>
+        <button type="button" id="reset-all-btn" class="btn btn-pill btn-danger">Reset everything</button>
+      </div>
+    </section>
+  </dialog>
 
   <script src="script.js?v=3"></script>
 </body>
