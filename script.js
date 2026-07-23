@@ -257,6 +257,15 @@ function resetEverything() {
   render();
 }
 
+function showNotification(title, options) {
+  const opts = { icon: 'icon-192.png', badge: 'icon-192-maskable.png', ...options };
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.ready.then((reg) => reg.showNotification(title, opts));
+  } else {
+    new Notification(title, opts);
+  }
+}
+
 function requestNotifPermission() {
   if (!('Notification' in window)) {
     alert('This browser does not support notifications.');
@@ -295,7 +304,7 @@ function checkNotifications(now) {
     if (leadMs > 0 && !status.ready) {
       const leadTs = status.nextEligibleTs - leadMs;
       if (now >= leadTs && state.notifiedEarly[item.id] !== status.last.ts) {
-        new Notification(`${status.cfg.label} coming up`, {
+        showNotification(`${status.cfg.label} coming up`, {
           body: `Available at ${fmtTime(status.nextEligibleTs)}.`,
         });
         state.notifiedEarly[item.id] = status.last.ts;
@@ -304,7 +313,7 @@ function checkNotifications(now) {
     }
 
     if (status.ready && state.notified[item.id] !== status.last.ts) {
-      new Notification(`${status.cfg.label} is due`, {
+      showNotification(`${status.cfg.label} is due`, {
         body: status.cfg.hasDose
           ? `Eligible for your next ${status.cfg.doseMg}mg dose.`
           : `Time for your next ${status.cfg.label.toLowerCase()}.`,
@@ -668,6 +677,10 @@ function setup() {
 
   render();
   setInterval(render, 15000);
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch((e) => console.error('SW registration failed:', e));
+  }
 }
 
 document.addEventListener('DOMContentLoaded', setup);
