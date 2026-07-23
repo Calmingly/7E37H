@@ -127,6 +127,80 @@ main {
   padding: 0.25rem 1.5rem 1.5rem;
 }
 
+.summary-strip {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  background: var(--card-bg);
+  border-radius: 26px;
+  padding: 1.1rem 1.4rem;
+  margin-bottom: 1.1rem;
+  box-shadow: var(--shadow);
+}
+
+.summary-strip:empty {
+  display: none;
+}
+
+.summary-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex-shrink: 0;
+}
+
+.summary-number {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.summary-of {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.summary-label {
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.summary-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.summary-next {
+  min-width: 0;
+}
+
+.summary-next-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.summary-next-value {
+  margin-top: 0.2rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.summary-all-ready {
+  color: var(--ready);
+}
+
 .items-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -134,23 +208,10 @@ main {
 }
 
 .card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 1.25rem 1.3rem;
+  border: none;
+  border-radius: 26px;
+  padding: 1.3rem 1.35rem;
   box-shadow: var(--shadow);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.card:hover {
-  box-shadow: var(--shadow-hover);
-  transform: translateY(-2px);
-}
-
-.card-top {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
 }
 
 .card-dot {
@@ -160,30 +221,40 @@ main {
   flex-shrink: 0;
 }
 
+.card-label-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+}
+
 .card-label {
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
   flex: 1;
   min-width: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .card-dose {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   flex-shrink: 0;
 }
 
 .card-main {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin: 1rem 0;
+  gap: 1.1rem;
+  margin-bottom: 1rem;
 }
 
 .ring-wrap {
   position: relative;
-  width: 76px;
-  height: 76px;
+  width: 88px;
+  height: 88px;
   flex-shrink: 0;
 }
 
@@ -196,12 +267,12 @@ main {
 .ring-bg {
   fill: none;
   stroke: var(--track);
-  stroke-width: 8;
+  stroke-width: 7;
 }
 
 .ring-fg {
   fill: none;
-  stroke-width: 8;
+  stroke-width: 7;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.4s ease;
 }
@@ -212,7 +283,7 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
 }
 
 .ring-badge {
@@ -237,10 +308,11 @@ main {
 }
 
 .info-big {
-  font-size: 1.4rem;
+  font-size: 1.65rem;
   font-weight: 800;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   color: var(--text);
+  line-height: 1.15;
 }
 
 .info-big.status-ready {
@@ -248,8 +320,9 @@ main {
 }
 
 .info-sub {
-  margin-top: 0.15rem;
+  margin-top: 0.2rem;
   font-size: 0.8rem;
+  font-weight: 500;
   color: var(--muted);
 }
 

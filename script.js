@@ -352,16 +352,14 @@ function itemCardHtml(item, now) {
   }
 
   return `
-    <div class="card" data-item="${item.id}">
-      <div class="card-top">
-        <span class="card-dot" style="background:${cfg.color}"></span>
-        <span class="card-label">${cfg.label}</span>
-        ${cfg.hasDose ? `<span class="card-dose">${cfg.doseMg}mg</span>` : ''}
-      </div>
-
+    <div class="card" data-item="${item.id}" style="background: color-mix(in srgb, ${cfg.color} 8%, var(--card-bg))">
       <div class="card-main">
         ${ringHtml(progressFraction, cfg.color, cfg.icon, statusClass === 'status-ready')}
         <div class="card-info">
+          <div class="card-label-row">
+            <span class="card-label">${cfg.label}</span>
+            ${cfg.hasDose ? `<span class="card-dose">${cfg.doseMg}mg</span>` : ''}
+          </div>
           <div class="info-big ${statusClass}">${bigText}</div>
           <div class="info-sub">${subText}</div>
         </div>
@@ -393,6 +391,42 @@ function localDatetimeValue(ts) {
   const d = new Date(ts);
   const pad = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function renderSummary(now) {
+  const container = document.getElementById('summary');
+  const visible = DEFAULT_ITEMS.filter((item) => !state.settings.hiddenItems.includes(item.id));
+  if (visible.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const statuses = visible.map((item) => computeStatus(item.id, now));
+  const readyCount = statuses.filter((s) => s.neverLogged || s.ready).length;
+
+  const upcoming = visible
+    .map((item, i) => ({ item, status: statuses[i] }))
+    .filter(({ status }) => !status.neverLogged && !status.ready)
+    .sort((a, b) => a.status.remainingMs - b.status.remainingMs)[0];
+
+  const nextHtml = upcoming
+    ? `
+      <div class="summary-next-label">Next up</div>
+      <div class="summary-next-value">${getConfig(upcoming.item.id).label} · ${fmtDuration(upcoming.status.remainingMs)}</div>
+    `
+    : `
+      <div class="summary-next-label">&nbsp;</div>
+      <div class="summary-next-value summary-all-ready">Everything's ready ✓</div>
+    `;
+
+  container.innerHTML = `
+    <div class="summary-stat">
+      <div class="summary-number">${readyCount}<span class="summary-of">/${visible.length}</span></div>
+      <div class="summary-label">ready now</div>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-next">${nextHtml}</div>
+  `;
 }
 
 function renderItems(now) {
@@ -521,6 +555,7 @@ function populateSettingsDialog() {
 function render() {
   const now = Date.now();
   try { updateHeader(now); } catch (e) { console.error('Header render failed:', e); }
+  try { renderSummary(now); } catch (e) { console.error('Summary render failed:', e); }
   try { renderItems(now); } catch (e) { console.error('Items render failed:', e); }
   try { renderHistory(); } catch (e) { console.error('History render failed:', e); }
   try { checkNotifications(now); } catch (e) { console.error('Notification check failed:', e); }
