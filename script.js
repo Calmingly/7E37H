@@ -15,6 +15,24 @@ const ICONS = {
 
 const TRASH_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>';
 
+const CLOCK_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 1.8"/></svg>';
+
+const EDIT_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L18.5 9.5a2.12 2.12 0 0 0-3-3L5 16v4Z"/><path d="M13.5 7L17 10.5"/></svg>';
+
+const ICON_OPTIONS = [
+  ['capsule', 'Capsule'],
+  ['tablet', 'Round tablet'],
+  ['caplet', 'Square tablet'],
+  ['glass', 'Rinse (glass)'],
+  ['bottle', 'Rinse (bottle)'],
+  ['flame', 'Warmth'],
+  ['snowflake', 'Cold'],
+];
+
+function iconKeyFor(svg) {
+  return Object.keys(ICONS).find((k) => ICONS[k] === svg) || 'capsule';
+}
+
 const DEFAULT_ITEMS = [
   { id: 'ibuprofen', label: 'Ibuprofen', icon: ICONS.capsule, color: '#3b82f6', hasDose: true, doseMg: 600, intervalMinH: 6, intervalMaxH: 6, dailyMaxMg: 2400 },
   { id: 'naproxen', label: 'Naproxen', icon: ICONS.caplet, color: '#ec4899', hasDose: true, doseMg: 200, intervalMinH: 8, intervalMaxH: 8, dailyMaxMg: 600 },
@@ -504,18 +522,28 @@ function itemCardHtml(item, now) {
 
       <div class="card-actions">
         <button class="btn btn-primary btn-log-now" data-item="${item.id}">Log now</button>
-        <button class="btn-icon btn-toggle-custom" data-item="${item.id}" title="Log at another time" aria-label="Log at another time">🕐</button>
-        <button class="btn-icon btn-toggle-edit" data-item="${item.id}" title="Edit settings" aria-label="Edit settings">✏️</button>
+        <button class="btn-icon btn-toggle-custom" data-item="${item.id}" title="Log at another time" aria-label="Log at another time">${CLOCK_ICON}</button>
+        <button class="btn-icon btn-toggle-edit" data-item="${item.id}" title="Edit settings" aria-label="Edit settings">${EDIT_ICON}</button>
       </div>
       <div class="custom-time-row" data-item="${item.id}">
         <input type="datetime-local" class="custom-time-input" data-item="${item.id}" value="${localDatetimeValue(now)}">
         <button class="btn btn-small btn-log-custom" data-item="${item.id}">Log this time</button>
       </div>
       <div class="edit-row" data-item="${item.id}">
-        ${cfg.hasDose ? `<label>Dose (mg)<input type="number" class="edit-dose" data-item="${item.id}" value="${cfg.doseMg}"></label>` : ''}
+        <label class="edit-full">Name<input type="text" class="edit-label" data-item="${item.id}" value="${cfg.label}"></label>
+        <label>Icon
+          <select class="edit-icon" data-item="${item.id}">
+            ${ICON_OPTIONS.map(([key, text]) => `<option value="${key}" ${iconKeyFor(cfg.icon) === key ? 'selected' : ''}>${text}</option>`).join('')}
+          </select>
+        </label>
+        <label>Color<input type="color" class="edit-color" data-item="${item.id}" value="${cfg.color}"></label>
+        <label class="edit-checkbox"><input type="checkbox" class="edit-has-dose" data-item="${item.id}" ${cfg.hasDose ? 'checked' : ''}> Tracks a dose</label>
+        <div class="edit-dose-fields field-row ${cfg.hasDose ? '' : 'hidden'}" data-item="${item.id}">
+          <label>Dose (mg)<input type="number" class="edit-dose" data-item="${item.id}" value="${cfg.hasDose ? cfg.doseMg : ''}"></label>
+          <label>Daily max (mg)<input type="number" class="edit-daily-max" data-item="${item.id}" value="${cfg.hasDose ? cfg.dailyMaxMg : ''}"></label>
+        </div>
         <label>Min hrs<input type="number" step="0.5" class="edit-min" data-item="${item.id}" value="${cfg.intervalMinH}"></label>
         <label>Max hrs<input type="number" step="0.5" class="edit-max" data-item="${item.id}" value="${cfg.intervalMaxH}"></label>
-        ${cfg.hasDose ? `<label>Daily max (mg)<input type="number" class="edit-daily-max" data-item="${item.id}" value="${cfg.dailyMaxMg}"></label>` : ''}
         <button class="btn btn-small btn-save-edit" data-item="${item.id}">Save</button>
       </div>
     </div>
@@ -1080,7 +1108,8 @@ function setup() {
   document.getElementById('reset-all-btn').addEventListener('click', resetEverything);
 
   document.getElementById('items').addEventListener('click', (e) => {
-    const target = e.target;
+    const target = e.target.closest('button');
+    if (!target) return;
     const id = target.dataset.item;
 
     if (target.classList.contains('btn-log-now')) {
@@ -1095,17 +1124,42 @@ function setup() {
       if (!isNaN(ts)) logDose(id, ts);
     } else if (target.classList.contains('btn-save-edit')) {
       const row = document.querySelector(`.edit-row[data-item="${id}"]`);
-      const fields = {};
+      const labelEl = row.querySelector('.edit-label');
+      const iconEl = row.querySelector('.edit-icon');
+      const colorEl = row.querySelector('.edit-color');
+      const hasDoseEl = row.querySelector('.edit-has-dose');
       const doseEl = row.querySelector('.edit-dose');
       const minEl = row.querySelector('.edit-min');
       const maxEl = row.querySelector('.edit-max');
       const dailyMaxEl = row.querySelector('.edit-daily-max');
-      if (doseEl) fields.doseMg = Number(doseEl.value);
-      if (minEl) fields.intervalMinH = Number(minEl.value);
-      if (maxEl) fields.intervalMaxH = Number(maxEl.value);
-      if (dailyMaxEl) fields.dailyMaxMg = Number(dailyMaxEl.value);
-      saveOverride(id, fields);
+
+      const label = labelEl.value.trim();
+      if (!label) { showToast('Name can\'t be empty.'); return; }
+      const intervalMinH = Number(minEl.value);
+      if (!intervalMinH || intervalMinH <= 0) { showToast('Enter a minimum hours value greater than 0.'); return; }
+      const hasDose = hasDoseEl.checked;
+      const doseMg = Number(doseEl.value);
+      const dailyMaxMg = Number(dailyMaxEl.value);
+      if (hasDose && (!doseMg || doseMg <= 0)) { showToast('Enter a dose amount.'); return; }
+      if (hasDose && (!dailyMaxMg || dailyMaxMg <= 0)) { showToast('Enter a daily max.'); return; }
+
+      saveOverride(id, {
+        label,
+        icon: ICONS[iconEl.value] || ICONS.capsule,
+        color: colorEl.value,
+        hasDose,
+        intervalMinH,
+        intervalMaxH: Number(maxEl.value) || intervalMinH,
+        doseMg: hasDose ? doseMg : undefined,
+        dailyMaxMg: hasDose ? dailyMaxMg : undefined,
+      });
     }
+  });
+
+  document.getElementById('items').addEventListener('change', (e) => {
+    if (!e.target.classList.contains('edit-has-dose')) return;
+    const fieldsDiv = document.querySelector(`.edit-dose-fields[data-item="${e.target.dataset.item}"]`);
+    if (fieldsDiv) fieldsDiv.classList.toggle('hidden', !e.target.checked);
   });
 
   document.getElementById('history').addEventListener('click', (e) => {

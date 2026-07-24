@@ -457,7 +457,8 @@ main {
   gap: 0.15rem;
 }
 
-.edit-row input {
+.edit-row input,
+.edit-row select {
   width: 5.5rem;
   font: inherit;
   padding: 0.3rem 0.5rem;
@@ -465,6 +466,37 @@ main {
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
+}
+
+.edit-row .edit-full {
+  flex: 1 1 100%;
+}
+
+.edit-row .edit-full input {
+  width: 100%;
+}
+
+.edit-row input[type="color"] {
+  width: 3rem;
+  padding: 0.15rem;
+  height: 2.1rem;
+}
+
+.edit-row .edit-checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.edit-row .edit-dose-fields {
+  flex: 1 1 100%;
+  gap: 0.5rem;
+}
+
+.edit-row .edit-dose-fields.hidden {
+  display: none;
 }
 
 .custom-time-input {
